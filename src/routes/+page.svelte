@@ -96,11 +96,9 @@
 <body>
 	<form>
 		<input
-			type="search"
 			bind:value={input}
 			on:input={search}
 			use:autoselect
-			autocapitalize="off"
 			autocorrect="off"
 			autocomplete="off"
 			spellcheck="false"
