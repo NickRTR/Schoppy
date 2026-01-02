@@ -25,6 +25,10 @@
 	});
 
 	let input = "";
+	// Reactive flags/derivations to minimize repeated work
+	$: isIdle = input.length === 0;
+	$: uncheckedProducts = $products.filter((p) => !p.checked);
+	$: checkedProducts = $products.filter((p) => p.checked);
 
 	async function addProduct() {
 		input = input.trim();
@@ -58,6 +62,7 @@
 	}
 
 	let searchTimeout;
+	let lastQueryId = 0; // guard against stale async updates
 	async function search() {
 		clearTimeout(searchTimeout);
 
@@ -65,43 +70,65 @@
 			$products = data.products;
 			return;
 		}
-		
+
+		// Only search when meaningful to reduce network + UI churn
+		if (input.length < 2) return;
+
 		searchTimeout = setTimeout(async () => {
+			const queryId = ++lastQueryId;
 			const { data: res, error } = await supabase
 				.from("products")
-				.select(`*, categories(category)`)
+				.select(`id, title, checked, amount, unit, categories(category)`) 
 				.eq("uuid", data.session.user.id)
 				.ilike("title", "%" + input + "%");
-			if (error) toast.error(error.message);
-			else $products = res;
-		}, 400);
+			if (error) {
+				toast.error(error.message);
+				return;
+			}
+			// Ignore stale responses from older queries
+			if (queryId === lastQueryId) {
+				$products = res ?? [];
+			}
+		}, 300);
 	}
 </script>
 
 <body>
 	<form>
-		<input type="text" bind:value={input} on:input={search} use:autoselect />
+		<input
+			type="search"
+			bind:value={input}
+			on:input={search}
+			use:autoselect
+			autocapitalize="off"
+			autocorrect="off"
+			autocomplete="off"
+			spellcheck="false"
+		/>
 		<button type="submit" on:click={addProduct}>{$_("pages.home.add")}</button>
 	</form>
 
 	<div class="products">
-		{#each $products as product (product.id)}
-			<div animate:flip={{ duration: 1000 }} in:fade|local out:fly|local={{ x: 100 }}>
-				{#if !product.checked}
-					<ProductCard {product} />
-				{/if}
+		{#each uncheckedProducts as product (product.id)}
+			<div
+				animate:flip={{ duration: isIdle ? 300 : 0 }}
+				in:fade|local={{ duration: isIdle ? 120 : 0 }}
+				out:fly|local={{ x: isIdle ? 100 : 0, duration: isIdle ? 120 : 0 }}
+			>
+				<ProductCard {product} />
 			</div>
 		{/each}
 	</div>
 
-	{#if $products.filter((product) => product.checked).length > 0}
+	{#if checkedProducts.length > 0}
 		<div class="checkedProducts">
 			<p class="divider"><span>{$_("pages.home.divider")}</span></p>
-			{#each $products as product (product.id)}
-				<div in:fade|local out:fly|local={{ x: 100 }}>
-					{#if product.checked}
-						<ProductCard {product} on:toggle={() => { input = ""; }} />
-					{/if}
+			{#each checkedProducts as product (product.id)}
+				<div
+					in:fade|local={{ duration: isIdle ? 120 : 0 }}
+					out:fly|local={{ x: isIdle ? 100 : 0, duration: isIdle ? 120 : 0 }}
+				>
+					<ProductCard {product} on:toggle={() => { input = ""; }} />
 				</div>
 			{/each}
 		</div>

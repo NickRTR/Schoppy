@@ -28,13 +28,23 @@ export async function getProducts(uuid) {
 }
 
 export async function sortProducts(products, uuid) {
-	let { data: priorities, error } = await supabase
+	const { data, error } = await supabase
 		.from("userdata")
-		.select(`priorities`)
-		.eq("uuid", uuid);
-	if (error) return products;
-	priorities = priorities[0].priorities;
-	return products.sort((a, b) => priorities[a.category] - priorities[b.category]);
+		.select("priorities")
+		.eq("uuid", uuid)
+		.single();
+	if (error || !data) return products;
+	const priorities = data.priorities || {};
+
+	const getPriority = (cat) => (typeof priorities[cat] === "number" ? priorities[cat] : Number.MAX_SAFE_INTEGER);
+	const getCreated = (item) => new Date(item.created_at ?? item.createdAt ?? item.created ?? 0).getTime();
+
+	return products.slice().sort((a, b) => {
+		const pa = getPriority(a.category);
+		const pb = getPriority(b.category);
+		if (pa !== pb) return pa - pb; // primary: category priority
+		return getCreated(a) - getCreated(b); // secondary: creation date
+	});
 }
 
 export async function sortCategories(categories, uuid) {
