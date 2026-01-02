@@ -100,7 +100,7 @@
 			{#each $products as product (product.id)}
 				<div in:fade|local out:fly|local={{ x: 100 }}>
 					{#if product.checked}
-						<ProductCard {product} on:toggle={input = ""} />
+						<ProductCard {product} on:toggle={() => { input = ""; }} />
 					{/if}
 				</div>
 			{/each}

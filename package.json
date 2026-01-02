@@ -10,20 +10,20 @@
 		"format": "prettier --plugin-search-dir . --write ."
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^3.0.0",
-		"@sveltejs/kit": "^2.0.0",
-		"@sveltejs/vite-plugin-svelte": "^3.0.0",
-		"prettier": "^2.8.0",
+		"@sveltejs/adapter-auto": "^3.3.1",
+		"@sveltejs/kit": "^2.49.2",
+		"@sveltejs/vite-plugin-svelte": "^3.1.2",
+		"prettier": "^2.8.8",
 		"prettier-plugin-svelte": "^2.10.1",
-		"svelte": "^4.0.5",
-		"vite": "^5.0.0"
+		"svelte": "^4.2.20",
+		"vite": "^5.4.21"
 	},
 	"type": "module",
 	"dependencies": {
 		"@supabase/ssr": "^0.1.0",
-		"@supabase/supabase-js": "^2.39.8",
+		"@supabase/supabase-js": "^2.89.0",
 		"svelte-autoselect": "^0.2.0",
 		"svelte-french-toast": "^1.2.0",
-		"svelte-i18n": "^4.0.0"
+		"svelte-i18n": "^4.0.1"
 	}
 }
