@@ -23,16 +23,20 @@
 
 		const { data: products, error } = await supabase
 			.from("products")
-			.select()
+			.select("title, amount, unit, categories(category)")
 			.eq("uuid", data.session.user.id)
 			.eq("checked", false);
 
-		if (error) toast.error(error.message);
+		if (error) {
+			toast.error(error.message);
+			return;
+		}
 
-		for (let i = 0; i < products.length; i++) {
-			let product = products[i];
-			list += `◯ ${product.title} (${product.amount} ${product.unit}) (${$_(
-				"pages.home.productCard.categories." + product.category
+		for (const product of products) {
+			list += `◯ ${product.title} (${product.amount} ${$_(
+				"pages.home.productCard.quantities." + product.unit
+			)}) (${$_(
+				"pages.home.productCard.categories." + product.categories.category
 			)}) \n`;
 		}
 

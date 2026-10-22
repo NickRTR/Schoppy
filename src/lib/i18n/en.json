@@ -28,7 +28,7 @@
 				"shareError": "Your device/browser isn't able to share this list.",
 				"deleteAll": "Delete all Items",
 				"deleteAllConfirm": "Are you sure you want to clear your Schoppy list and delete all list items?",
-				"deleteAllCuccess": "Your list has been cleared.",
+				"deleteAllSuccess": "Your list has been cleared.",
 				"deleteAllError": "An error occurred while clearing your list: "
 			},
 			"categories": {
@@ -38,8 +38,8 @@
 				"prioritiesUpdated": "Categories sorted succcessfully.",
 				"resetCategories": "Reset Categories",
 				"resetCategoriesConfirm": "Are you sure you want to reset your custom product to category assignments?",
-				"resetCategories_success": "Succcessfully resetted.",
-				"resetCategories_error": "An error occurred while resetting your categories: "
+				"resetCategoriesSuccess": "Successfully reset.",
+				"resetCategoriesError": "An error occurred while resetting your categories: "
 			},
 			"units": {
 				"title": "Quantity Units"
