@@ -3,108 +3,107 @@
 	import { fade, fly } from "svelte/transition";
 	import { onMount } from "svelte";
 	import { supabase } from "$lib/supabase";
-	import { getCategory, getProducts } from "$lib/api";
+	import { getProducts } from "$lib/api";
 	import { products } from "$lib/products";
 	import { toast } from "svelte-french-toast";
+	import { getCategory } from "$lib/api";
 	import { _ } from "svelte-i18n";
 
 	import ProductCard from "$lib/components/ProductCard.svelte";
 	import autoselect from "svelte-autoselect";
 
 	export let data;
-	let mounted = false;
 
 	onMount(() => {
-		$products = data.products ?? [];
-		mounted = true;
+		$products = data.products;
 
-		const refreshProducts = () => {
+		document.addEventListener("visibilitychange", () => {
 			if (document.visibilityState === "visible") {
-				getProducts(data.user.id);
+				getProducts(data.session.user.id);
 			}
-		};
-
-		document.addEventListener("visibilitychange", refreshProducts);
-
-		return () => {
-			document.removeEventListener("visibilitychange", refreshProducts);
-		};
+		});
 	});
 
 	let input = "";
-	$: normalizedInput = input.trim().toLocaleLowerCase();
-	$: isIdle = normalizedInput === "";
-	$: allProducts = mounted ? $products : data.products ?? [];
-	$: visibleProducts =
-		normalizedInput === ""
-			? allProducts
-			: allProducts.filter((product) =>
-					product.title.toLocaleLowerCase().includes(normalizedInput)
-			  );
-	$: uncheckedProducts = visibleProducts.filter((p) => !p.checked);
-	$: checkedProducts = visibleProducts.filter((p) => p.checked);
-
-	function clearSearch() {
-		input = "";
-	}
+	// Reactive flags/derivations to minimize repeated work
+	$: isIdle = input.length === 0;
+	$: uncheckedProducts = $products.filter((p) => !p.checked);
+	$: checkedProducts = $products.filter((p) => p.checked);
 
 	async function addProduct() {
 		input = input.trim();
 		if (input === "") return;
 
-		const normalizedTitle = input.toLocaleLowerCase();
-		const existingProduct = $products.find(
-			(product) => product.title.toLocaleLowerCase() === normalizedTitle
-		);
-
-		if (existingProduct) {
-			if (existingProduct.checked) {
-				const { error } = await supabase
-					.from("products")
-					.update({ checked: false, amount: 1, unit: "pcs" })
-					.eq("id", existingProduct.id);
-
-				if (error) {
-					toast.error(error.message);
-					return;
+		for (let product of $products) {
+			if (product.title === input) {
+				if (product.checked) {
+					await supabase
+						.from("products")
+						.update({ checked: false, amount: 1, unit: "pcs" })
+						.eq("id", product.id);
+					toast.success($_("pages.home.added", { values: { product: product.title } }));
+				} else {
+					toast($_("pages.home.alreadyAdded"), { icon: "👍" });
 				}
-
-				toast.success($_("pages.home.added", { values: { product: existingProduct.title } }));
-			} else {
-				toast($_("pages.home.alreadyAdded"), { icon: "👍" });
+				input = "";
+				await getProducts(data.session.user.id);
+				return;
 			}
-
-			clearSearch();
-			await getProducts(data.user.id);
-			return;
 		}
 
-		const category = await getCategory(input, data.user.id);
-		const { error } = await supabase
+		const category = await getCategory(input);
+
+		await supabase
 			.from("products")
-			.insert([{ title: input, uuid: data.user.id, category }]);
+			.insert([{ title: input, uuid: data.session.user.id, category }]);
+		toast.success($_("pages.home.added", { values: { product: input } }));
+		await getProducts(data.session.user.id);
+		input = "";
+	}
 
-		if (error) {
-			toast.error(error.message);
+	let searchTimeout;
+	let lastQueryId = 0; // guard against stale async updates
+	async function search() {
+		clearTimeout(searchTimeout);
+
+		if (input === "") {
+			$products = data.products;
 			return;
 		}
 
-		toast.success($_("pages.home.added", { values: { product: input } }));
-		await getProducts(data.user.id);
-		clearSearch();
+		// Only search when meaningful to reduce network + UI churn
+		if (input.length < 2) return;
+
+		searchTimeout = setTimeout(async () => {
+			const queryId = ++lastQueryId;
+			const { data: res, error } = await supabase
+				.from("products")
+				.select(`id, title, checked, amount, unit, categories(category)`) 
+				.eq("uuid", data.session.user.id)
+				.ilike("title", "%" + input + "%");
+			if (error) {
+				toast.error(error.message);
+				return;
+			}
+			// Ignore stale responses from older queries
+			if (queryId === lastQueryId) {
+				$products = res ?? [];
+			}
+		}, 300);
 	}
 </script>
 
-<div class="page">
-	<form on:submit|preventDefault={addProduct}>
+<body>
+	<form>
 		<input
 			bind:value={input}
+			on:input={search}
 			use:autoselect
 			autocorrect="off"
 			autocomplete="off"
 			spellcheck="false"
 		/>
-		<button type="submit">{$_("pages.home.add")}</button>
+		<button type="submit" on:click={addProduct}>{$_("pages.home.add")}</button>
 	</form>
 
 	<div class="products">
@@ -114,7 +113,7 @@
 				in:fade|local={{ duration: isIdle ? 120 : 0 }}
 				out:fly|local={{ x: isIdle ? 100 : 0, duration: isIdle ? 120 : 0 }}
 			>
-				<ProductCard {product} on:toggle={clearSearch} />
+				<ProductCard {product} />
 			</div>
 		{/each}
 	</div>
@@ -127,15 +126,15 @@
 					in:fade|local={{ duration: isIdle ? 120 : 0 }}
 					out:fly|local={{ x: isIdle ? 100 : 0, duration: isIdle ? 120 : 0 }}
 				>
-					<ProductCard {product} on:toggle={clearSearch} />
+					<ProductCard {product} on:toggle={() => { input = ""; }} />
 				</div>
 			{/each}
 		</div>
 	{/if}
-</div>
+</body>
 
 <style>
-	.page {
+	body {
 		padding-bottom: 0.5rem;
 	}
 

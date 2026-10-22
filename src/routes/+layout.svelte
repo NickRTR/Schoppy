@@ -7,18 +7,15 @@
 
 	export let data;
 
-	let { supabase, user } = data;
-	$: ({ supabase, user } = data);
+	let { supabase, session } = data;
+	$: ({ supabase, session } = data);
 
 	onMount(() => {
 		const {
 			data: { subscription }
-		} = supabase.auth.onAuthStateChange((event, session) => {
-			if (
-				["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event) &&
-				(event === "USER_UPDATED" || session?.user?.id !== user?.id)
-			) {
-				void invalidate("supabase:auth");
+		} = supabase.auth.onAuthStateChange((event, _session) => {
+			if (_session?.expires_at !== session?.expires_at) {
+				invalidate("supabase:auth");
 			}
 		});
 
@@ -30,23 +27,23 @@
 	<title>Schoppy</title>
 </svelte:head>
 
-<div class="app">
+<body>
 	<Toaster />
 	<header>
 		<h1>Schoppy</h1>
-		{#if data.user}
+		{#if data.session}
 			<Nav />
 		{/if}
 	</header>
 	<main><slot /></main>
-</div>
+</body>
 
 <style>
 	* {
 		font-family: Arial, Helvetica, sans-serif;
 	}
 
-	.app {
+	body {
 		max-width: 700px;
 		margin: auto;
 	}
@@ -69,9 +66,7 @@
 		padding-inline: 0.4rem;
 	}
 
-	:global(button),
-	:global(.button) {
-		display: inline-block;
+	:global(button) {
 		background-color: var(--accent);
 		color: var(--background);
 		font-weight: bold;
@@ -83,7 +78,7 @@
 		cursor: pointer;
 	}
 
-	:global(button:hover, button:focus, .button:hover, .button:focus) {
+	:global(button:hover, button:focus) {
 		border-color: var(--background);
 	}
 

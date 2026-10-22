@@ -3,7 +3,7 @@
 	import { _ } from "svelte-i18n";
 	import { page } from "$app/stores";
 	import autoselect from "svelte-autoselect";
-	import { createEventDispatcher } from "svelte";
+	import { createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -36,26 +36,26 @@
 <div class="container">
 	<div class="Card">
 		<div class="ImageTitleQuantity">
-			<button
-				type="button"
-				class="categoryToggle"
-				aria-label={$_(`pages.home.productCard.categories.${product.categories.category}`)}
+			<img
+				type="image"
+				src="/category/{product.categories.category}.svg"
+				alt={$_(`pages.home.productCard.categories.${product.categories.category}`)}
+				title={$_(`pages.home.productCard.categories.${product.categories.category}`)}
 				on:click={() => {
 					showChangeCategory = !showChangeCategory;
 				}}
-			>
-				<img
-					src="/category/{product.categories.category}.svg"
-					alt=""
-					title={$_(`pages.home.productCard.categories.${product.categories.category}`)}
-				/>
-			</button>
+			/>
 			<div class="TitleAndQuantity">
 				<div
 					id="title"
 					contenteditable="true"
 					on:blur={(event) => {
-						editTitle(product.id, $page.data.user.id, product.title, event.target.innerText);
+						editTitle(
+							product.id,
+							$page.data.session.user.id,
+							product.title,
+							event.target.innerText
+						);
 					}}
 				>
 					{product.title}
@@ -69,13 +69,18 @@
 						maxlength="4"
 						value={product.amount}
 						on:blur={(event) => {
-							editAmount(product.id, $page.data.user.id, product.amount, event.target.value);
+							editAmount(
+								product.id,
+								$page.data.session.user.id,
+								product.amount,
+								event.target.value
+							);
 						}}
 					/>
 					<select
 						value={product.unit}
 						on:change={(event) => {
-							editUnit(product.id, $page.data.user.id, product.unit, event.target.value);
+							editUnit(product.id, $page.data.session.user.id, product.unit, event.target.value);
 						}}
 					>
 						<option value="pcs">{$_("pages.home.productCard.quantities.pcs")}</option>
@@ -92,10 +97,9 @@
 				<input
 					type="checkbox"
 					checked={product.checked}
-					on:change={async () => {
-						if (await toggleChecked(product.id, $page.data.user.id, product.checked)) {
-							dispatch("toggle");
-						}
+					on:click={() => {
+						dispatch('toggle')
+						toggleChecked(product.id, $page.data.session.user.id, product.checked);
 					}}
 				/>
 				<input
@@ -103,7 +107,7 @@
 					src="/delete.svg"
 					alt="delete"
 					on:click={() => {
-						deleteProduct(product.id, $page.data.user.id);
+						deleteProduct(product.id, $page.data.session.user.id);
 					}}
 				/>
 			</div>
@@ -112,14 +116,12 @@
 	{#if showChangeCategory}
 		<div class="changeCategory" transition:slide>
 			{#each categories as category}
-				<button
-					type="button"
-					class="categoryOption"
+				<div
 					on:click={() => {
 						showChangeCategory = !showChangeCategory;
 						changeCategory(
 							product.id,
-							$page.data.user.id,
+							$page.data.session.user.id,
 							product.title,
 							product.category,
 							category
@@ -132,7 +134,7 @@
 						alt={$_(`pages.home.productCard.categories.${category}`)}
 						title={$_(`pages.home.productCard.categories.${category}`)}
 					/>
-				</button>
+				</div>
 			{/each}
 		</div>
 	{/if}
@@ -159,21 +161,6 @@
 		height: 3.5rem;
 		width: 3.5rem;
 		cursor: pointer;
-	}
-
-	.categoryToggle,
-	.categoryOption {
-		margin: 0;
-		padding: 0;
-		border: 0;
-		border-radius: 0.5rem;
-		background: transparent;
-		color: inherit;
-	}
-
-	.categoryToggle:focus-visible,
-	.categoryOption:focus-visible {
-		outline: 2px solid var(--accent);
 	}
 
 	.TitleAndQuantity {
@@ -259,23 +246,24 @@
 		border: 4px solid var(--minor);
 	}
 
-	.changeCategory > button {
+	.changeCategory > div {
 		margin: 0.2rem;
+		border-radius: 0.5rem;
 		cursor: pointer;
 	}
 
-	.changeCategory > button:hover p {
+	.changeCategory > div:hover p {
 		color: var(--accent);
 	}
 
-	.changeCategory > button > p {
+	.changeCategory > div > p {
 		margin: 0;
 		font-size: 1rem;
 		line-height: 1.5rem;
 		font-weight: 600;
 	}
 
-	.changeCategory > button > img {
+	.changeCategory > div > img {
 		height: 2.5rem;
 	}
 </style>

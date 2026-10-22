@@ -1,9 +1,9 @@
 import toast from "svelte-french-toast";
 import { _ } from "svelte-i18n";
 import { supabase } from "$lib/supabase";
+import { page } from "$app/stores";
 import { get } from "svelte/store";
 import { products } from "$lib/products";
-import { fetchSortedProducts } from "$lib/productQueries";
 
 const categoryList = {
 	choose: 0,
@@ -18,127 +18,157 @@ const categoryList = {
 	sweets: 9
 };
 
-export async function getProducts(userId) {
-	const { data, error } = await fetchSortedProducts(supabase, userId);
-	if (error) {
-		toast.error(error.message);
-		return false;
-	}
-
-	products.set(data);
-	return true;
+export async function getProducts(uuid) {
+	const { data: data, error } = await supabase
+		.from("products")
+		.select(`*, categories(category)`)
+		.eq("uuid", uuid);
+	if (error) toast.error(error.message);
+	products.set(await sortProducts(data, uuid));
 }
 
-async function updateProduct(id, userId, changes) {
-	const { error } = await supabase.from("products").update(changes).eq("id", id);
-	if (error) {
-		toast.error(error.message);
-		return false;
-	}
+export async function sortProducts(products, uuid) {
+	const { data, error } = await supabase
+		.from("userdata")
+		.select("priorities")
+		.eq("uuid", uuid)
+		.single();
+	if (error || !data) return products;
+	const priorities = data.priorities || {};
 
-	await getProducts(userId);
-	return true;
+	const getPriority = (cat) => (typeof priorities[cat] === "number" ? priorities[cat] : Number.MAX_SAFE_INTEGER);
+	const getCreated = (item) => new Date(item.created_at ?? item.createdAt ?? item.created ?? 0).getTime();
+
+	return products.slice().sort((a, b) => {
+		const pa = getPriority(a.category);
+		const pb = getPriority(b.category);
+		if (pa !== pb) return pa - pb; // primary: category priority
+		return getCreated(a) - getCreated(b); // secondary: creation date
+	});
+}
+
+export async function sortCategories(categories, uuid) {
+	let { data: priorities, error } = await supabase
+		.from("userdata")
+		.select(`priorities`)
+		.eq("uuid", uuid);
+	if (error) return products;
+	priorities = priorities[0].priorities;
+
+	// Convert categories array to an object
+	const categoriesObj = categories.reduce((obj, item) => {
+		obj[item.id] = item.category;
+		return obj;
+	}, {});
+
+	const sortedCategories = Object.keys(categoriesObj)
+		.sort((a, b) => priorities[a] - priorities[b])
+		.map((key) => categoriesObj[key]);
+
+	return sortedCategories;
 }
 
 export async function editTitle(id, uuid, oldTitle, newTitle) {
 	newTitle = newTitle.trim();
-	if (oldTitle === newTitle || newTitle.length <= 1) {
-		await getProducts(uuid);
-		return;
-	}
+	if (oldTitle === newTitle || newTitle.length <= 1) newTitle = oldTitle;
 
-	const category = await getCategory(newTitle, uuid);
+	const category = await getCategory(newTitle);
 
-	await updateProduct(id, uuid, { title: newTitle, category });
+	const { error } = await supabase
+		.from("products")
+		.update({ title: newTitle, category })
+		.eq("id", id);
+	await getProducts(uuid);
+	if (error) toast.error(error).message;
 }
 
 export async function editAmount(id, uuid, oldAmount, newAmount) {
-	if (String(oldAmount) === newAmount) return;
+	if (oldAmount === newAmount) return;
 
-	await updateProduct(id, uuid, { amount: newAmount });
+	const { error } = await supabase.from("products").update({ amount: newAmount }).eq("id", id);
+	await getProducts(uuid);
+	if (error) toast.error(error.message);
 }
 
 export async function editUnit(id, uuid, oldUnit, newUnit) {
 	if (oldUnit === newUnit) return;
 
-	await updateProduct(id, uuid, { unit: newUnit });
+	const { error } = await supabase.from("products").update({ unit: newUnit }).eq("id", id);
+	await getProducts(uuid);
+	if (error) toast.error(error.message);
 }
 
 export async function toggleChecked(id, uuid, checked) {
-	return updateProduct(id, uuid, { checked: !checked });
+	const { error } = await supabase.from("products").update({ checked: !checked }).eq("id", id);
+	await getProducts(uuid);
+	if (error) toast.error(error.message);
 }
 
 export async function deleteProduct(id, uuid) {
 	if (confirm(get(_)("pages.home.deleteConfirm"))) {
 		const { error } = await supabase.from("products").delete().eq("id", id);
-		if (error) {
-			toast.error(error.message);
-			return;
-		}
-
-		toast.success(get(_)("pages.home.deleteSuccess"));
+		if (error) toast.error(error.message);
+		else toast.success(get(_)("pages.home.deleteSuccess"));
 		await getProducts(uuid);
 	}
 }
 
-export async function getCategory(title, userId) {
+export async function getCategory(title) {
 	title = title.trim().toLowerCase();
 
 	const { data, error } = await supabase
 		.from("user_dictionary")
 		.select()
 		.eq("title", title)
-		.eq("uuid", userId);
+		.eq("uuid", get(page).data.session.user.id);
 	if (error) {
 		toast.error(error.message);
-		return 0;
-	}
-
-	if (data?.length) {
+	} else if (data.length > 0) {
 		return data[0].category;
+	} else {
+		const language = localStorage.getItem("lang");
+		const { data, error } = await supabase.from("dictionary").select().eq("language", language);
+
+		if (error) {
+			toast.error(error.message);
+		} else {
+			const matchingTitle = data.find((dbTitle) => title.includes(dbTitle.title));
+			if (matchingTitle) {
+				return matchingTitle.category;
+			}
+			return 0;
+		}
 	}
-
-	const language = localStorage.getItem("lang");
-	const { data: dictionary, error: dictionaryError } = await supabase
-		.from("dictionary")
-		.select()
-		.eq("language", language);
-
-	if (dictionaryError) {
-		toast.error(dictionaryError.message);
-		return 0;
-	}
-
-	return dictionary.find((entry) => title.includes(entry.title))?.category ?? 0;
 }
 
 export async function changeCategory(id, userId, title, oldCategory, newCategory) {
-	newCategory = categoryList[newCategory];
-	if (Number(oldCategory) === newCategory) return;
+	if (oldCategory === newCategory) return;
 
-	const normalizedTitle = title.trim().toLowerCase();
+	newCategory = categoryList[newCategory];
 
 	const { count } = await supabase
 		.from("user_dictionary")
 		.select("*", { count: "exact", head: true })
-		.eq("title", normalizedTitle)
+		.eq("title", title.toLowerCase())
 		.eq("uuid", userId);
 
 	if (count === 0) {
 		const { error } = await supabase
 			.from("user_dictionary")
-			.insert([{ uuid: userId, title: normalizedTitle, category: newCategory }]);
+			.insert([{ uuid: userId, title: title.trim().toLowerCase(), category: newCategory }]);
 		if (error) toast.error(error.message);
 	} else {
 		const { error } = await supabase
 			.from("user_dictionary")
 			.update({ category: newCategory })
 			.eq("uuid", userId)
-			.eq("title", normalizedTitle);
+			.eq("title", title);
 		if (error) toast.error(error.message);
 	}
 
-	await updateProduct(id, userId, { category: newCategory });
+	const { error } = await supabase.from("products").update({ category: newCategory }).eq("id", id);
+	await getProducts(userId);
+	if (error) toast.error(error.message);
 }
 
 export async function updatePriorities(priorities, uuid) {
@@ -149,10 +179,6 @@ export async function updatePriorities(priorities, uuid) {
 		p[category] = i;
 	}
 	const { error } = await supabase.from("userdata").update({ priorities: p }).eq("uuid", uuid);
-	if (error) {
-		toast.error(error.message);
-		return;
-	}
-
+	if (error) toast.error(error.message);
 	toast.success(get(_)("pages.settings.categories.prioritiesUpdated"));
 }

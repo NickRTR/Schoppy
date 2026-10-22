@@ -1,21 +1,30 @@
-import { error, redirect } from "@sveltejs/kit";
-import { fetchSortedProducts } from "$lib/productQueries";
+import { supabase } from "$lib/supabase";
+import { redirect } from "@sveltejs/kit";
+import { sortProducts } from "$lib/api";
 
-export async function load({ locals: { getUser, supabase } }) {
-	const user = await getUser();
+export async function load({ locals }) {
+	const session = await locals.getSession();
 
-	if (!user) {
+	if (!session) {
 		redirect(303, "/login");
 	}
 
-	const productsResult = await fetchSortedProducts(supabase, user.id);
+	const { data: products, error } = await supabase
+		.from("products")
+		.select(`*, categories(category)`)
+		.eq("uuid", session.user.id);
 
-	if (productsResult.error) {
-		console.error("Error fetching products:", productsResult.error);
-		error(500, "Products could not be loaded");
+	if (error) {
+		console.error("Error fetching products:", error);
+		return;
 	}
 
+	const sortedProducts = await sortProducts(products, session.user.id);
+
+	const { data: categories } = await supabase.from("categories").select("category");
+
 	return {
-		products: productsResult.data
+		products: sortedProducts ?? [],
+		categories: categories ?? []
 	};
 }

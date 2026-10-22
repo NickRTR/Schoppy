@@ -1,30 +1,21 @@
-import { error, redirect } from "@sveltejs/kit";
+import { supabase } from "$lib/supabase";
+import { redirect } from "@sveltejs/kit";
+import { sortCategories } from "$lib/api.js";
 
-export const load = async ({ locals: { getUser, supabase } }) => {
-	const user = await getUser();
+export const load = async ({ parent }) => {
+	const { session } = await parent();
 
-	if (!user) {
+	if (!session) {
 		redirect(303, "/login");
 	}
 
-	const [categoriesResult, prioritiesResult] = await Promise.all([
-		supabase.from("categories").select("id, category"),
-		supabase.from("userdata").select("priorities").eq("uuid", user.id).maybeSingle()
-	]);
-
-	if (categoriesResult.error) {
-		console.error("Error fetching categories:", categoriesResult.error);
-		error(500, "Categories could not be loaded");
+	const { data, error } = await supabase.from("categories").select("id, category");
+	if (error) {
+		console.error("Error fetching categories:", error);
+		return;
 	}
 
-	const priorities = prioritiesResult.data?.priorities ?? {};
-	const categories = (categoriesResult.data ?? [])
-		.sort(
-			(a, b) =>
-				(priorities[a.id] ?? Number.MAX_SAFE_INTEGER) -
-				(priorities[b.id] ?? Number.MAX_SAFE_INTEGER)
-		)
-		.map(({ category }) => category);
+	const categories = await sortCategories(data, session.user.id);
 
 	return { categories };
 };

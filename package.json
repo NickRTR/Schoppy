@@ -2,9 +2,6 @@
 	"name": "schoppy",
 	"version": "0.0.1",
 	"private": true,
-	"engines": {
-		"node": "24.x"
-	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -13,18 +10,18 @@
 		"format": "prettier --plugin-search-dir . --write ."
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-vercel": "^6.3.4",
-		"@sveltejs/kit": "^2.70.3",
-		"@sveltejs/vite-plugin-svelte": "^4.0.4",
+		"@sveltejs/adapter-auto": "^3.3.1",
+		"@sveltejs/kit": "^2.49.2",
+		"@sveltejs/vite-plugin-svelte": "^3.1.2",
 		"prettier": "^2.8.8",
 		"prettier-plugin-svelte": "^2.10.1",
-		"svelte": "^5.57.2",
+		"svelte": "^4.2.20",
 		"vite": "^5.4.21"
 	},
 	"type": "module",
 	"dependencies": {
 		"@supabase/ssr": "^0.1.0",
-		"@supabase/supabase-js": "^2.118.0",
+		"@supabase/supabase-js": "^2.89.0",
 		"svelte-autoselect": "^0.2.0",
 		"svelte-french-toast": "^1.2.0",
 		"svelte-i18n": "^4.0.1"
