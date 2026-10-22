@@ -1,6 +1,6 @@
 import { supabase } from "$lib/supabase";
 import { redirect } from "@sveltejs/kit";
-import { sortProducts } from "$lib/api";
+import { fetchProducts, sortProducts } from "$lib/api";
 
 export async function load({ locals }) {
 	const session = await locals.getSession();
@@ -9,10 +9,7 @@ export async function load({ locals }) {
 		redirect(303, "/login");
 	}
 
-	const { data: products, error } = await supabase
-		.from("products")
-		.select(`*, categories(category)`)
-		.eq("uuid", session.user.id);
+	const { data: products, error } = await fetchProducts(supabase, session.user.id);
 
 	if (error) {
 		console.error("Error fetching products:", error);

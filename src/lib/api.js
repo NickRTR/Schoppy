@@ -18,12 +18,38 @@ const categoryList = {
 	sweets: 9
 };
 
+const PRODUCT_PAGE_SIZE = 1000;
+
+export async function fetchProducts(client, uuid) {
+	const allProducts = [];
+
+	while (true) {
+		const from = allProducts.length;
+		const { data, error } = await client
+			.from("products")
+			.select(`*, categories(category)`)
+			.eq("uuid", uuid)
+			.order("id", { ascending: true })
+			.range(from, from + PRODUCT_PAGE_SIZE - 1);
+
+		if (error) return { data: null, error };
+
+		const page = data ?? [];
+		allProducts.push(...page);
+
+		if (page.length < PRODUCT_PAGE_SIZE) {
+			return { data: allProducts, error: null };
+		}
+	}
+}
+
 export async function getProducts(uuid) {
-	const { data: data, error } = await supabase
-		.from("products")
-		.select(`*, categories(category)`)
-		.eq("uuid", uuid);
-	if (error) toast.error(error.message);
+	const { data, error } = await fetchProducts(supabase, uuid);
+	if (error) {
+		toast.error(error.message);
+		return;
+	}
+
 	products.set(await sortProducts(data, uuid));
 }
 
