@@ -16,9 +16,9 @@
 		} = supabase.auth.onAuthStateChange((event, session) => {
 			if (
 				["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event) &&
-				session?.user?.id !== user?.id
+				(event === "USER_UPDATED" || session?.user?.id !== user?.id)
 			) {
-				invalidate("supabase:auth");
+				void invalidate("supabase:auth");
 			}
 		});
 
@@ -69,7 +69,9 @@
 		padding-inline: 0.4rem;
 	}
 
-	:global(button) {
+	:global(button),
+	:global(.button) {
+		display: inline-block;
 		background-color: var(--accent);
 		color: var(--background);
 		font-weight: bold;
@@ -81,7 +83,7 @@
 		cursor: pointer;
 	}
 
-	:global(button:hover, button:focus) {
+	:global(button:hover, button:focus, .button:hover, .button:focus) {
 		border-color: var(--background);
 	}
 

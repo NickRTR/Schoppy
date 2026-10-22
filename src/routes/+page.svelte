@@ -3,10 +3,9 @@
 	import { fade, fly } from "svelte/transition";
 	import { onMount } from "svelte";
 	import { supabase } from "$lib/supabase";
-	import { getProducts } from "$lib/api";
+	import { getCategory, getProducts } from "$lib/api";
 	import { products } from "$lib/products";
 	import { toast } from "svelte-french-toast";
-	import { getCategory } from "$lib/api";
 	import { _ } from "svelte-i18n";
 
 	import ProductCard from "$lib/components/ProductCard.svelte";
@@ -18,7 +17,6 @@
 	onMount(() => {
 		$products = data.products ?? [];
 		mounted = true;
-		getProducts(data.user.id);
 
 		const refreshProducts = () => {
 			if (document.visibilityState === "visible") {
@@ -34,12 +32,11 @@
 	});
 
 	let input = "";
-	// Reactive flags/derivations to minimize repeated work
-	$: isIdle = input.length === 0;
 	$: normalizedInput = input.trim().toLocaleLowerCase();
+	$: isIdle = normalizedInput === "";
 	$: allProducts = mounted ? $products : data.products ?? [];
 	$: visibleProducts =
-		normalizedInput.length < 2
+		normalizedInput === ""
 			? allProducts
 			: allProducts.filter((product) =>
 					product.title.toLocaleLowerCase().includes(normalizedInput)
@@ -55,26 +52,43 @@
 		input = input.trim();
 		if (input === "") return;
 
-		for (let product of $products) {
-			if (product.title === input) {
-				if (product.checked) {
-					await supabase
-						.from("products")
-						.update({ checked: false, amount: 1, unit: "pcs" })
-						.eq("id", product.id);
-					toast.success($_("pages.home.added", { values: { product: product.title } }));
-				} else {
-					toast($_("pages.home.alreadyAdded"), { icon: "👍" });
+		const normalizedTitle = input.toLocaleLowerCase();
+		const existingProduct = $products.find(
+			(product) => product.title.toLocaleLowerCase() === normalizedTitle
+		);
+
+		if (existingProduct) {
+			if (existingProduct.checked) {
+				const { error } = await supabase
+					.from("products")
+					.update({ checked: false, amount: 1, unit: "pcs" })
+					.eq("id", existingProduct.id);
+
+				if (error) {
+					toast.error(error.message);
+					return;
 				}
-				clearSearch();
-				await getProducts(data.user.id);
-				return;
+
+				toast.success($_("pages.home.added", { values: { product: existingProduct.title } }));
+			} else {
+				toast($_("pages.home.alreadyAdded"), { icon: "👍" });
 			}
+
+			clearSearch();
+			await getProducts(data.user.id);
+			return;
 		}
 
-		const category = await getCategory(input);
+		const category = await getCategory(input, data.user.id);
+		const { error } = await supabase
+			.from("products")
+			.insert([{ title: input, uuid: data.user.id, category }]);
 
-		await supabase.from("products").insert([{ title: input, uuid: data.user.id, category }]);
+		if (error) {
+			toast.error(error.message);
+			return;
+		}
+
 		toast.success($_("pages.home.added", { values: { product: input } }));
 		await getProducts(data.user.id);
 		clearSearch();

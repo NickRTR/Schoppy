@@ -43,11 +43,11 @@
 		let target = document.elementFromPoint(ev.clientX, ev.clientY).closest(".item");
 		if (target && target != lastTarget) {
 			lastTarget = target;
-			dragEnter(ev, target);
+			dragEnter(target);
 		}
 	}
 
-	function dragEnter(ev, target) {
+	function dragEnter(target) {
 		// swap items in data
 		if (grabbed && target != grabbed && target.classList.contains("item")) {
 			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
@@ -61,7 +61,7 @@
 		data = [...data.slice(0, to), temp, ...data.slice(to)];
 	}
 
-	function release(ev) {
+	function release() {
 		grabbed = null;
 	}
 </script>
@@ -83,11 +83,12 @@
 		class={grabbed ? "item haunting" : "item"}
 		style={"top: " + (mouseY + offsetY - layerY) + "px"}
 	>
-		<!-- prettier-ignore -->
-		<p></p>
+		<span aria-hidden="true">&nbsp;</span>
 	</div>
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		class="list"
+		role="list"
 		on:mousemove={function (ev) {
 			ev.stopPropagation();
 			drag(ev.clientY);
@@ -98,19 +99,21 @@
 		}}
 		on:mouseup={function (ev) {
 			ev.stopPropagation();
-			release(ev);
+			release();
 		}}
 		on:touchend={function (ev) {
 			ev.stopPropagation();
-			release(ev.touches[0]);
+			release();
 		}}
 	>
 		{#each data as datum, i (datum.id ? datum.id : JSON.stringify(datum))}
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<div
 				id={grabbed && (datum.id ? datum.id : JSON.stringify(datum)) == grabbed.dataset.id
 					? "grabbed"
 					: ""}
 				class="item"
+				role="listitem"
 				data-index={i}
 				data-id={datum.id ? datum.id : JSON.stringify(datum)}
 				data-grabY="0"
@@ -122,7 +125,7 @@
 				}}
 				on:mouseenter={function (ev) {
 					ev.stopPropagation();
-					dragEnter(ev, ev.target);
+					dragEnter(ev.target);
 				}}
 				on:touchmove={function (ev) {
 					ev.stopPropagation();
@@ -134,6 +137,7 @@
 				<div class="buttons">
 					<button
 						class="up"
+						aria-label="Move up"
 						style={"visibility: " + (i > 0 ? "" : "hidden") + ";"}
 						on:click={function (ev) {
 							moveDatum(i, i - 1);
@@ -147,6 +151,7 @@
 					</button>
 					<button
 						class="down"
+						aria-label="Move down"
 						style={"visibility: " + (i < data.length - 1 ? "" : "hidden") + ";"}
 						on:click={function (ev) {
 							moveDatum(i, i + 1);

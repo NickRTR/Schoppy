@@ -1,7 +1,7 @@
 <script>
 	import { _, locale, locales } from "svelte-i18n";
 	import { updatePriorities, getProducts } from "$lib/api";
-	import { products } from "$lib/products";
+	import { fetchProducts } from "$lib/productQueries";
 	import { slide } from "svelte/transition";
 	import { supabase } from "$lib/supabase";
 	import toast from "svelte-french-toast";
@@ -13,40 +13,38 @@
 	let showSort = false;
 	let categories = data.categories;
 
-	function changeLanguage(event) {
-		locale.set(event.target.value);
-		localStorage.setItem("lang", event.target.value);
+	function changeLanguage({ currentTarget }) {
+		locale.set(currentTarget.value);
+		localStorage.setItem("lang", currentTarget.value);
 	}
 
 	async function shareList() {
-		let list = "Schoppy\n\n";
+		const { data: products, error } = await fetchProducts(supabase, data.user.id, {
+			checked: false
+		});
 
-		const { data: products, error } = await supabase
-			.from("products")
-			.select()
-			.eq("uuid", data.user.id)
-			.eq("checked", false);
-
-		if (error) toast.error(error.message);
-
-		for (let i = 0; i < products.length; i++) {
-			let product = products[i];
-			list += `◯ ${product.title} (${product.amount} ${product.unit}) (${$_(
-				"pages.home.productCard.categories." + product.category
-			)}) \n`;
+		if (error) {
+			toast.error(error.message);
+			return;
 		}
 
-		if (navigator.share) {
-			navigator
-				.share({
-					title: `Schoppy`,
-					text: list
-				})
-				.catch((error) => {
-					toast.error(error);
-				});
-		} else {
+		const items = products.map(
+			(product) =>
+				`◯ ${product.title} (${product.amount} ${product.unit}) (${$_(
+					"pages.home.productCard.categories." + product.category
+				)})`
+		);
+		const list = ["Schoppy", "", ...items].join("\n");
+
+		if (!navigator.share) {
 			toast.error($_("pages.settings.list.shareError"));
+			return;
+		}
+
+		try {
+			await navigator.share({ title: "Schoppy", text: list });
+		} catch (error) {
+			if (error.name !== "AbortError") toast.error(error.message);
 		}
 	}
 
@@ -58,7 +56,7 @@
 				toast.error($_("pages.settings.list.deleteAllError") + error.message);
 			} else {
 				toast.success($_("pages.settings.list.deleteAllSuccess"));
-				$products = getProducts(data.user.id);
+				await getProducts(data.user.id);
 			}
 		}
 	}
@@ -85,60 +83,52 @@
 	<title>{$_("pages.settings.title")}</title>
 </svelte:head>
 
-<div class="settings">
-	<div class="grid">
-		<section class="account">
-			<h2>{data.user.email}</h2>
-			<a href="/logout"><button>{$_("pages.settings.logout")}</button></a>
-		</section>
+<div class="grid">
+	<section class="account">
+		<h2>{data.user.email}</h2>
+		<a class="button" href="/logout">{$_("pages.settings.logout")}</a>
+	</section>
 
-		<section class="language">
-			<h2>{$_("pages.settings.language")}</h2>
-			<select
-				value={$locale}
-				on:change={() => {
-					changeLanguage(event);
-				}}
-			>
-				{#each $locales as locale}
-					<option value={locale}>{$_("pages.settings.languages." + locale)}</option>
-				{/each}
-			</select>
-		</section>
+	<section class="language">
+		<h2>{$_("pages.settings.language")}</h2>
+		<select value={$locale} on:change={changeLanguage}>
+			{#each $locales as locale}
+				<option value={locale}>{$_("pages.settings.languages." + locale)}</option>
+			{/each}
+		</select>
+	</section>
 
-		<section class="list">
-			<h2>{$_("pages.settings.list.title")}</h2>
-			<button on:click={shareList}>{$_("pages.settings.list.share")}</button>
-			<button on:click={deleteAll}>{$_("pages.settings.list.deleteAll")}</button>
-		</section>
+	<section class="list">
+		<h2>{$_("pages.settings.list.title")}</h2>
+		<button on:click={shareList}>{$_("pages.settings.list.share")}</button>
+		<button on:click={deleteAll}>{$_("pages.settings.list.deleteAll")}</button>
+	</section>
 
-		<section class="units">
-			<h2>{$_("pages.settings.units.title")}</h2>
-			<strong>Work in progress 🚧</strong>
-		</section>
+	<section class="units">
+		<h2>{$_("pages.settings.units.title")}</h2>
+		<strong>Work in progress 🚧</strong>
+	</section>
 
-		<section class="categories">
-			<h2>{$_("pages.settings.categories.title")}</h2>
-			<button
-				on:click={() => {
-					showSort = !showSort;
-				}}>{$_("pages.settings.categories.categoryList")}</button
-			>
-			{#if showSort}
-				<div transition:slide|local={{ duration: 800 }}>
-					<DragDropList bind:data={categories} />
-					<button on:click={sortCategories}>{$_("pages.settings.categories.sortCategories")}</button
-					>
-				</div>
-			{/if}
-			<button on:click={resetCategories}>{$_("pages.settings.categories.resetCategories")}</button>
-		</section>
+	<section class="categories">
+		<h2>{$_("pages.settings.categories.title")}</h2>
+		<button
+			on:click={() => {
+				showSort = !showSort;
+			}}>{$_("pages.settings.categories.categoryList")}</button
+		>
+		{#if showSort}
+			<div transition:slide|local={{ duration: 800 }}>
+				<DragDropList bind:data={categories} />
+				<button on:click={sortCategories}>{$_("pages.settings.categories.sortCategories")}</button>
+			</div>
+		{/if}
+		<button on:click={resetCategories}>{$_("pages.settings.categories.resetCategories")}</button>
+	</section>
 
-		<section class="feedback">
-			<h2>{$_("pages.settings.feedback.title")}</h2>
-			<Feedback />
-		</section>
-	</div>
+	<section class="feedback">
+		<h2>{$_("pages.settings.feedback.title")}</h2>
+		<Feedback />
+	</section>
 </div>
 
 <style>

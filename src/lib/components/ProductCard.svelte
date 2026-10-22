@@ -36,15 +36,20 @@
 <div class="container">
 	<div class="Card">
 		<div class="ImageTitleQuantity">
-			<img
-				type="image"
-				src="/category/{product.categories.category}.svg"
-				alt={$_(`pages.home.productCard.categories.${product.categories.category}`)}
-				title={$_(`pages.home.productCard.categories.${product.categories.category}`)}
+			<button
+				type="button"
+				class="categoryToggle"
+				aria-label={$_(`pages.home.productCard.categories.${product.categories.category}`)}
 				on:click={() => {
 					showChangeCategory = !showChangeCategory;
 				}}
-			/>
+			>
+				<img
+					src="/category/{product.categories.category}.svg"
+					alt=""
+					title={$_(`pages.home.productCard.categories.${product.categories.category}`)}
+				/>
+			</button>
 			<div class="TitleAndQuantity">
 				<div
 					id="title"
@@ -87,9 +92,10 @@
 				<input
 					type="checkbox"
 					checked={product.checked}
-					on:click={() => {
-						dispatch("toggle");
-						toggleChecked(product.id, $page.data.user.id, product.checked);
+					on:change={async () => {
+						if (await toggleChecked(product.id, $page.data.user.id, product.checked)) {
+							dispatch("toggle");
+						}
 					}}
 				/>
 				<input
@@ -106,7 +112,9 @@
 	{#if showChangeCategory}
 		<div class="changeCategory" transition:slide>
 			{#each categories as category}
-				<div
+				<button
+					type="button"
+					class="categoryOption"
 					on:click={() => {
 						showChangeCategory = !showChangeCategory;
 						changeCategory(
@@ -124,7 +132,7 @@
 						alt={$_(`pages.home.productCard.categories.${category}`)}
 						title={$_(`pages.home.productCard.categories.${category}`)}
 					/>
-				</div>
+				</button>
 			{/each}
 		</div>
 	{/if}
@@ -151,6 +159,21 @@
 		height: 3.5rem;
 		width: 3.5rem;
 		cursor: pointer;
+	}
+
+	.categoryToggle,
+	.categoryOption {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		border-radius: 0.5rem;
+		background: transparent;
+		color: inherit;
+	}
+
+	.categoryToggle:focus-visible,
+	.categoryOption:focus-visible {
+		outline: 2px solid var(--accent);
 	}
 
 	.TitleAndQuantity {
@@ -236,24 +259,23 @@
 		border: 4px solid var(--minor);
 	}
 
-	.changeCategory > div {
+	.changeCategory > button {
 		margin: 0.2rem;
-		border-radius: 0.5rem;
 		cursor: pointer;
 	}
 
-	.changeCategory > div:hover p {
+	.changeCategory > button:hover p {
 		color: var(--accent);
 	}
 
-	.changeCategory > div > p {
+	.changeCategory > button > p {
 		margin: 0;
 		font-size: 1rem;
 		line-height: 1.5rem;
 		font-weight: 600;
 	}
 
-	.changeCategory > div > img {
+	.changeCategory > button > img {
 		height: 2.5rem;
 	}
 </style>
