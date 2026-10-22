@@ -3,9 +3,9 @@ import { redirect } from "@sveltejs/kit";
 import { sortCategories } from "$lib/api.js";
 
 export const load = async ({ parent }) => {
-	const { session } = await parent();
+	const { user } = await parent();
 
-	if (!session) {
+	if (!user) {
 		redirect(303, "/login");
 	}
 
@@ -15,7 +15,7 @@ export const load = async ({ parent }) => {
 		return;
 	}
 
-	const categories = await sortCategories(data, session.user.id);
+	const categories = await sortCategories(data, user.id);
 
 	return { categories };
 };

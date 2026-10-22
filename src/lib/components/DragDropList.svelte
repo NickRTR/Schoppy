@@ -83,7 +83,8 @@
 		class={grabbed ? "item haunting" : "item"}
 		style={"top: " + (mouseY + offsetY - layerY) + "px"}
 	>
-		<p />
+		<!-- prettier-ignore -->
+		<p></p>
 	</div>
 	<div
 		class="list"

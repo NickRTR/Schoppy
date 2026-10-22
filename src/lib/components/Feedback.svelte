@@ -23,12 +23,13 @@
 			<label for="name">{$_("pages.settings.feedback.name")}</label>
 			<input type="text" name="name" id="name" placeholder={$_("pages.settings.feedback.name")} />
 			<label for="message">{$_("pages.settings.feedback.message_label")}</label>
+			<!-- prettier-ignore -->
 			<textarea
 				name="message"
 				id="message"
 				placeholder={$_("pages.settings.feedback.message")}
 				required
-			/>
+			></textarea>
 			<button
 				on:click={() => {
 					toggleSubmitted();

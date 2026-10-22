@@ -14,7 +14,7 @@ export const load = async ({ fetch, data, depends }) => {
 		cookies: {
 			get(key) {
 				if (!isBrowser()) {
-					return JSON.stringify(data.session);
+					return undefined;
 				}
 
 				const cookie = parse(document.cookie);
@@ -23,11 +23,7 @@ export const load = async ({ fetch, data, depends }) => {
 		}
 	});
 
-	const {
-		data: { session }
-	} = await supabase.auth.getSession();
-
 	await waitLocale();
 
-	return { supabase, session };
+	return { supabase, user: data.user };
 };

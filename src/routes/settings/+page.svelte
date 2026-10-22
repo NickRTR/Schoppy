@@ -24,7 +24,7 @@
 		const { data: products, error } = await supabase
 			.from("products")
 			.select()
-			.eq("uuid", data.session.user.id)
+			.eq("uuid", data.user.id)
 			.eq("checked", false);
 
 		if (error) toast.error(error.message);
@@ -52,28 +52,25 @@
 
 	async function deleteAll() {
 		if (confirm($_("pages.settings.list.deleteAllConfirm"))) {
-			const { error } = await supabase.from("products").delete().eq("uuid", data.session.user.id);
+			const { error } = await supabase.from("products").delete().eq("uuid", data.user.id);
 
 			if (error) {
 				toast.error($_("pages.settings.list.deleteAllError") + error.message);
 			} else {
 				toast.success($_("pages.settings.list.deleteAllSuccess"));
-				$products = getProducts(data.session.user.id);
+				$products = getProducts(data.user.id);
 			}
 		}
 	}
 
 	function sortCategories() {
-		updatePriorities(categories, data.session.user.id);
+		updatePriorities(categories, data.user.id);
 		showSort = false;
 	}
 
 	async function resetCategories() {
 		if (confirm($_("pages.settings.categories.resetCategoriesConfirm"))) {
-			const { error } = await supabase
-				.from("user_dictionary")
-				.delete()
-				.eq("uuid", data.session.user.id);
+			const { error } = await supabase.from("user_dictionary").delete().eq("uuid", data.user.id);
 
 			if (error) {
 				toast.error($_("pages.settings.categories.resetCategoriesError") + error.message);
@@ -88,10 +85,10 @@
 	<title>{$_("pages.settings.title")}</title>
 </svelte:head>
 
-<body>
+<div class="settings">
 	<div class="grid">
 		<section class="account">
-			<h2>{data.session.user.email}</h2>
+			<h2>{data.user.email}</h2>
 			<a href="/logout"><button>{$_("pages.settings.logout")}</button></a>
 		</section>
 
@@ -142,7 +139,7 @@
 			<Feedback />
 		</section>
 	</div>
-</body>
+</div>
 
 <style>
 	.grid {

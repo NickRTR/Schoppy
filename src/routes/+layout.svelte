@@ -7,14 +7,17 @@
 
 	export let data;
 
-	let { supabase, session } = data;
-	$: ({ supabase, session } = data);
+	let { supabase, user } = data;
+	$: ({ supabase, user } = data);
 
 	onMount(() => {
 		const {
 			data: { subscription }
-		} = supabase.auth.onAuthStateChange((event, _session) => {
-			if (_session?.expires_at !== session?.expires_at) {
+		} = supabase.auth.onAuthStateChange((event, session) => {
+			if (
+				["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event) &&
+				session?.user?.id !== user?.id
+			) {
 				invalidate("supabase:auth");
 			}
 		});
@@ -27,23 +30,23 @@
 	<title>Schoppy</title>
 </svelte:head>
 
-<body>
+<div class="app">
 	<Toaster />
 	<header>
 		<h1>Schoppy</h1>
-		{#if data.session}
+		{#if data.user}
 			<Nav />
 		{/if}
 	</header>
 	<main><slot /></main>
-</body>
+</div>
 
 <style>
 	* {
 		font-family: Arial, Helvetica, sans-serif;
 	}
 
-	body {
+	.app {
 		max-width: 700px;
 		margin: auto;
 	}

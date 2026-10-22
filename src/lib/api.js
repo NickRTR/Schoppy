@@ -4,6 +4,7 @@ import { supabase } from "$lib/supabase";
 import { page } from "$app/stores";
 import { get } from "svelte/store";
 import { products } from "$lib/products";
+import { fetchProducts } from "$lib/productQueries";
 
 const categoryList = {
 	choose: 0,
@@ -19,16 +20,13 @@ const categoryList = {
 };
 
 export async function getProducts(uuid) {
-	const { data: data, error } = await supabase
-		.from("products")
-		.select(`*, categories(category)`)
-		.eq("uuid", uuid);
+	const { data, error } = await fetchProducts(supabase, uuid);
 	if (error) toast.error(error.message);
-	products.set(await sortProducts(data, uuid));
+	else products.set(await sortProducts(data, uuid));
 }
 
-export async function sortProducts(products, uuid) {
-	const { data, error } = await supabase
+export async function sortProducts(products, uuid, client = supabase) {
+	const { data, error } = await client
 		.from("userdata")
 		.select("priorities")
 		.eq("uuid", uuid)
@@ -36,8 +34,10 @@ export async function sortProducts(products, uuid) {
 	if (error || !data) return products;
 	const priorities = data.priorities || {};
 
-	const getPriority = (cat) => (typeof priorities[cat] === "number" ? priorities[cat] : Number.MAX_SAFE_INTEGER);
-	const getCreated = (item) => new Date(item.created_at ?? item.createdAt ?? item.created ?? 0).getTime();
+	const getPriority = (cat) =>
+		typeof priorities[cat] === "number" ? priorities[cat] : Number.MAX_SAFE_INTEGER;
+	const getCreated = (item) =>
+		new Date(item.created_at ?? item.createdAt ?? item.created ?? 0).getTime();
 
 	return products.slice().sort((a, b) => {
 		const pa = getPriority(a.category);
@@ -120,7 +120,7 @@ export async function getCategory(title) {
 		.from("user_dictionary")
 		.select()
 		.eq("title", title)
-		.eq("uuid", get(page).data.session.user.id);
+		.eq("uuid", get(page).data.user.id);
 	if (error) {
 		toast.error(error.message);
 	} else if (data.length > 0) {

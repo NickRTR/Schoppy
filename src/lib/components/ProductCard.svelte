@@ -3,7 +3,7 @@
 	import { _ } from "svelte-i18n";
 	import { page } from "$app/stores";
 	import autoselect from "svelte-autoselect";
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher } from "svelte";
 
 	const dispatch = createEventDispatcher();
 
@@ -50,12 +50,7 @@
 					id="title"
 					contenteditable="true"
 					on:blur={(event) => {
-						editTitle(
-							product.id,
-							$page.data.session.user.id,
-							product.title,
-							event.target.innerText
-						);
+						editTitle(product.id, $page.data.user.id, product.title, event.target.innerText);
 					}}
 				>
 					{product.title}
@@ -69,18 +64,13 @@
 						maxlength="4"
 						value={product.amount}
 						on:blur={(event) => {
-							editAmount(
-								product.id,
-								$page.data.session.user.id,
-								product.amount,
-								event.target.value
-							);
+							editAmount(product.id, $page.data.user.id, product.amount, event.target.value);
 						}}
 					/>
 					<select
 						value={product.unit}
 						on:change={(event) => {
-							editUnit(product.id, $page.data.session.user.id, product.unit, event.target.value);
+							editUnit(product.id, $page.data.user.id, product.unit, event.target.value);
 						}}
 					>
 						<option value="pcs">{$_("pages.home.productCard.quantities.pcs")}</option>
@@ -98,8 +88,8 @@
 					type="checkbox"
 					checked={product.checked}
 					on:click={() => {
-						dispatch('toggle')
-						toggleChecked(product.id, $page.data.session.user.id, product.checked);
+						dispatch("toggle");
+						toggleChecked(product.id, $page.data.user.id, product.checked);
 					}}
 				/>
 				<input
@@ -107,7 +97,7 @@
 					src="/delete.svg"
 					alt="delete"
 					on:click={() => {
-						deleteProduct(product.id, $page.data.session.user.id);
+						deleteProduct(product.id, $page.data.user.id);
 					}}
 				/>
 			</div>
@@ -121,7 +111,7 @@
 						showChangeCategory = !showChangeCategory;
 						changeCategory(
 							product.id,
-							$page.data.session.user.id,
+							$page.data.user.id,
 							product.title,
 							product.category,
 							category

@@ -13,22 +13,43 @@
 	import autoselect from "svelte-autoselect";
 
 	export let data;
+	let mounted = false;
 
 	onMount(() => {
-		$products = data.products;
+		$products = data.products ?? [];
+		mounted = true;
+		getProducts(data.user.id);
 
-		document.addEventListener("visibilitychange", () => {
+		const refreshProducts = () => {
 			if (document.visibilityState === "visible") {
-				getProducts(data.session.user.id);
+				getProducts(data.user.id);
 			}
-		});
+		};
+
+		document.addEventListener("visibilitychange", refreshProducts);
+
+		return () => {
+			document.removeEventListener("visibilitychange", refreshProducts);
+		};
 	});
 
 	let input = "";
 	// Reactive flags/derivations to minimize repeated work
 	$: isIdle = input.length === 0;
-	$: uncheckedProducts = $products.filter((p) => !p.checked);
-	$: checkedProducts = $products.filter((p) => p.checked);
+	$: normalizedInput = input.trim().toLocaleLowerCase();
+	$: allProducts = mounted ? $products : data.products ?? [];
+	$: visibleProducts =
+		normalizedInput.length < 2
+			? allProducts
+			: allProducts.filter((product) =>
+					product.title.toLocaleLowerCase().includes(normalizedInput)
+			  );
+	$: uncheckedProducts = visibleProducts.filter((p) => !p.checked);
+	$: checkedProducts = visibleProducts.filter((p) => p.checked);
+
+	function clearSearch() {
+		input = "";
+	}
 
 	async function addProduct() {
 		input = input.trim();
@@ -45,65 +66,31 @@
 				} else {
 					toast($_("pages.home.alreadyAdded"), { icon: "👍" });
 				}
-				input = "";
-				await getProducts(data.session.user.id);
+				clearSearch();
+				await getProducts(data.user.id);
 				return;
 			}
 		}
 
 		const category = await getCategory(input);
 
-		await supabase
-			.from("products")
-			.insert([{ title: input, uuid: data.session.user.id, category }]);
+		await supabase.from("products").insert([{ title: input, uuid: data.user.id, category }]);
 		toast.success($_("pages.home.added", { values: { product: input } }));
-		await getProducts(data.session.user.id);
-		input = "";
-	}
-
-	let searchTimeout;
-	let lastQueryId = 0; // guard against stale async updates
-	async function search() {
-		clearTimeout(searchTimeout);
-
-		if (input === "") {
-			$products = data.products;
-			return;
-		}
-
-		// Only search when meaningful to reduce network + UI churn
-		if (input.length < 2) return;
-
-		searchTimeout = setTimeout(async () => {
-			const queryId = ++lastQueryId;
-			const { data: res, error } = await supabase
-				.from("products")
-				.select(`id, title, checked, amount, unit, categories(category)`) 
-				.eq("uuid", data.session.user.id)
-				.ilike("title", "%" + input + "%");
-			if (error) {
-				toast.error(error.message);
-				return;
-			}
-			// Ignore stale responses from older queries
-			if (queryId === lastQueryId) {
-				$products = res ?? [];
-			}
-		}, 300);
+		await getProducts(data.user.id);
+		clearSearch();
 	}
 </script>
 
-<body>
-	<form>
+<div class="page">
+	<form on:submit|preventDefault={addProduct}>
 		<input
 			bind:value={input}
-			on:input={search}
 			use:autoselect
 			autocorrect="off"
 			autocomplete="off"
 			spellcheck="false"
 		/>
-		<button type="submit" on:click={addProduct}>{$_("pages.home.add")}</button>
+		<button type="submit">{$_("pages.home.add")}</button>
 	</form>
 
 	<div class="products">
@@ -113,7 +100,7 @@
 				in:fade|local={{ duration: isIdle ? 120 : 0 }}
 				out:fly|local={{ x: isIdle ? 100 : 0, duration: isIdle ? 120 : 0 }}
 			>
-				<ProductCard {product} />
+				<ProductCard {product} on:toggle={clearSearch} />
 			</div>
 		{/each}
 	</div>
@@ -126,15 +113,15 @@
 					in:fade|local={{ duration: isIdle ? 120 : 0 }}
 					out:fly|local={{ x: isIdle ? 100 : 0, duration: isIdle ? 120 : 0 }}
 				>
-					<ProductCard {product} on:toggle={() => { input = ""; }} />
+					<ProductCard {product} on:toggle={clearSearch} />
 				</div>
 			{/each}
 		</div>
 	{/if}
-</body>
+</div>
 
 <style>
-	body {
+	.page {
 		padding-bottom: 0.5rem;
 	}
 
