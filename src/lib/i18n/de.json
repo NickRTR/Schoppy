@@ -77,7 +77,7 @@
 			},
 			"add": "Hinzufügen",
 			"added": "{product} hinzugefügt",
-			"divider": "Erledigt",
+			"divider": "Zuletzt Erledigt",
 			"deleteConfirm": "Produkt löschen?",
 			"deleteSuccess": "Produkt gelöscht.",
 			"alreadyAdded": "Produkt bereits auf der Liste."

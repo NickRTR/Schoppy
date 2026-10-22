@@ -21,26 +21,39 @@ const categoryList = {
 const PRODUCT_PAGE_SIZE = 1000;
 
 export async function fetchProducts(client, uuid) {
-	const allProducts = [];
+	const uncheckedProducts = [];
 
 	while (true) {
-		const from = allProducts.length;
+		const from = uncheckedProducts.length;
 		const { data, error } = await client
 			.from("products")
 			.select(`*, categories(category)`)
 			.eq("uuid", uuid)
+			.eq("checked", false)
 			.order("id", { ascending: true })
 			.range(from, from + PRODUCT_PAGE_SIZE - 1);
 
 		if (error) return { data: null, error };
 
 		const page = data ?? [];
-		allProducts.push(...page);
+		uncheckedProducts.push(...page);
 
 		if (page.length < PRODUCT_PAGE_SIZE) {
-			return { data: allProducts, error: null };
+			break;
 		}
 	}
+
+	const { data: checkedProducts, error } = await client
+		.from("products")
+		.select(`*, categories(category)`)
+		.eq("uuid", uuid)
+		.eq("checked", true)
+		.order("checked_at", { ascending: false, nullsFirst: false })
+		.limit(10);
+
+	if (error) return { data: null, error };
+
+	return { data: [...uncheckedProducts, ...(checkedProducts ?? [])], error: null };
 }
 
 export async function getProducts(uuid) {
@@ -65,12 +78,17 @@ export async function sortProducts(products, uuid) {
 	const getPriority = (cat) => (typeof priorities[cat] === "number" ? priorities[cat] : Number.MAX_SAFE_INTEGER);
 	const getCreated = (item) => new Date(item.created_at ?? item.createdAt ?? item.created ?? 0).getTime();
 
-	return products.slice().sort((a, b) => {
+	const uncheckedProducts = products.filter((product) => !product.checked);
+	const checkedProducts = products.filter((product) => product.checked);
+
+	uncheckedProducts.sort((a, b) => {
 		const pa = getPriority(a.category);
 		const pb = getPriority(b.category);
 		if (pa !== pb) return pa - pb; // primary: category priority
 		return getCreated(a) - getCreated(b); // secondary: creation date
 	});
+
+	return [...uncheckedProducts, ...checkedProducts];
 }
 
 export async function sortCategories(categories, uuid) {
@@ -125,7 +143,14 @@ export async function editUnit(id, uuid, oldUnit, newUnit) {
 }
 
 export async function toggleChecked(id, uuid, checked) {
-	const { error } = await supabase.from("products").update({ checked: !checked }).eq("id", id);
+	const nextChecked = !checked;
+	const { error } = await supabase
+		.from("products")
+		.update({
+			checked: nextChecked,
+			checked_at: nextChecked ? new Date().toISOString() : null
+		})
+		.eq("id", id);
 	await getProducts(uuid);
 	if (error) toast.error(error.message);
 }
